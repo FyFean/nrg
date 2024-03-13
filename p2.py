@@ -39,6 +39,7 @@ def read_binary_file(file_path):
 
 
 splat_list = read_binary_file("nike.splat")
+
 def create_view_matrix(eye, target, up):
     forward = (target - eye)
     forward /= np.linalg.norm(forward)
@@ -58,9 +59,24 @@ def create_view_matrix(eye, target, up):
 
     return view_matrix
 
-eye = np.array([0, 0, 10], dtype=np.float64)     # Camera position: (0, 0, 5)
-target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
-up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
+
+
+def create_perspective_matrix():
+    width, height = 800, 600 
+    fov = 60
+    near_plane, far_plane = 10, 100.0 
+    aspect_ratio = width / height
+    fov_rad = np.deg2rad(fov)
+    f = 15 / np.tan(fov_rad / 2)
+    z_range = near_plane - far_plane
+    perspective_matrix = np.array([
+        [f / aspect_ratio, 0, 0, 0],
+        [0, f, 0, 0],
+        [0, 0, (near_plane + far_plane) / z_range, (2 * near_plane * far_plane) / z_range],
+        [0, 0, -1, 0]
+    ])
+    return perspective_matrix
+
 # view_matrix = np.array([
 #         [1, 0, 0, -np.dot(np.array([1, 0, 0]), np.array([0, 0, 0]))],
 #         [0, 1, 0, -np.dot( np.array([0, 1, 0]), np.array([0, 0, 0]))],
@@ -68,7 +84,6 @@ up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - as
 #         [0, 0, 0, 1]
 #     ])
 
-view_matrix = np.eye(4)
 
 print("********", view_matrix)
 '''
@@ -78,84 +93,43 @@ print("********", view_matrix)
 |  0   0   0         1     |
 '''
 
-width, height = 800, 600 
-fov = 60
-near_plane, far_plane = 10, 100.0 
-aspect_ratio = width / height
-fov_rad = np.deg2rad(fov)
-f = 15 / np.tan(fov_rad / 2)
-z_range = near_plane - far_plane
+
 # perspective_matrix = np.array([
 #     [f / aspect_ratio, 0, 0, 0],
 #     [0, f, 0, 0],
 #     [0, 0, (far_plane + near_plane) / (near_plane - far_plane), -1],
 #     [0, 0, (2 * far_plane * near_plane) / (near_plane - far_plane), 0]
 # ])
-# perspective_matrix = np.array([
-#         [f / aspect_ratio, 0, 0, 0],
-#         [0, f, 0, 0],
-#         [0, 0, (near_plane + far_plane) / z_range, (2 * near_plane * far_plane) / z_range],
-#         [0, 0, -1, 0]
-#     ])
-# perspective_matrix = np.array([
-#     [1 / (aspect_ratio * np.tan(fov / 2)), 0, 0, 0],
-#     [0, 1 / np.tan(fov / 2), 0, 0],
-#     [0, 0, -(far_plane + near_plane) / (far_plane - near_plane), -2 * far_plane * near_plane / (far_plane - near_plane)],
-#     [0, 0, -1, 0]
-# ])
-perspective_matrix = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 0, 0],
-    [0, 0, 0, 1]
-])
-
-print(perspective_matrix)
-print(create_view_matrix(eye,target,up) )
 
 
-# joint_matrix =  perspective_matrix @ create_view_matrix(eye,target,up) 
+
+eye = np.array([0, 0, 10], dtype=np.float64)     # Camera position: (0, 0, 5)
+target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
+up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
+joint_matrix =  perspective_matrix @ create_view_matrix(eye,target,up) 
 
 def to_homogeneous(point):
     homogeneous_point = np.array([point['position'][0], point['position'][1], point['position'][2], 1])
     return homogeneous_point
 
-# # position mnozena z view in perspective matrix
+# position mnozena z view in perspective matrix
 for point in splat_list:
-    point['position'] = to_homogeneous(point)
-#     transformed_point = np.dot(joint_matrix, homogeneous_point)
-#     point['position'] = transformed_point[:3] / transformed_point[3] 
+    homogeneous_point = to_homogeneous(point)
+    transformed_point = np.dot(joint_matrix, homogeneous_point)
+    point['position'] = transformed_point[:3] / transformed_point[3] 
 
 
-points_3d_homogeneous = np.array([splat['position'] for splat in splat_list])
-points_2d_homogeneous = np.dot(perspective_matrix, np.dot(view_matrix, points_3d_homogeneous.T)).T
 
-# Dehomogenize the points
-points_2d = points_2d_homogeneous[:, :2] / points_2d_homogeneous[:, 3:]
+positions = [splat['position'] for splat in splat_list]
+colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
 
-# Plot the projected points
-plt.scatter(points_2d[:, 0], points_2d[:, 1])
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.title('Projection of 3D homogeneous points')
-plt.grid(True)
+x = [point['position'][0] for point in splat_list]
+y = [point['position'][1] for point in splat_list]
+z = [point['position'][2] for point in splat_list]
+
+plt.figure(figsize=(width, height),  facecolor='black')
+plt.scatter(x,y,c=colors,s=2)
 plt.show()
-
-
-
-
-
-
-# positions = [splat['position'] for splat in splat_list]
-# colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
-
-# x = [point['position'][0] for point in splat_list]
-# y = [point['position'][1] for point in splat_list]
-# z = [point['position'][2] for point in splat_list]
-
-# plt.figure(figsize=(8, 6),  facecolor='black')
-# plt.scatter(x,y,c=colors,s=2)
-# plt.show()
 
 
 # Plotting 3D
