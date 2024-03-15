@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Slider
-
 from util import *
 
 
@@ -14,7 +13,7 @@ def create_view_matrix(eye, target, up):
     right = np.cross(up, forward)
     right /= np.linalg.norm(right)
     
-    new_up = np.cross(forward, right)
+    new_up = -np.cross(forward, right)
     new_up /= np.linalg.norm(new_up)
 
     view_matrix = np.array([
@@ -27,24 +26,7 @@ def create_view_matrix(eye, target, up):
     return view_matrix
 
 
-
-# def create_perspective_matrix(aspect_ratio):
-
-#     fov = 60
-#     near_plane, far_plane = 10, 100.0 
-#     # aspect_ratio = aspect_ratio
-#     print("aspect_ratio perspective", aspect_ratio)
-#     fov_rad = np.deg2rad(fov)
-#     f = 15 / np.tan(fov_rad / 2)
-#     z_range = near_plane - far_plane
-#     perspective_matrix = np.array([
-#         [f / aspect_ratio, 0, 0, 0],
-#         [0, f, 0, 0],
-#         [0, 0, (near_plane + far_plane) / z_range, (2 * near_plane * far_plane) / z_range],
-#         [0, 0, -1, 0]
-#     ])
-#     return perspective_matrix
-def create_perspective_matrix(aspect_ratio):
+def create_perspective_matrix():
     aspect_ratio = 1
     fov = 60
     near_plane, far_plane = 10, 100.0 
@@ -66,104 +48,64 @@ def to_homogeneous(point):
     homogeneous_point = np.array([point['position'][0], point['position'][1], point['position'][2], 1])
     return homogeneous_point
 
-def create_viewport_matrix(width, height):
-    # Define the viewport dimensions
-    viewport_width = width
-    viewport_height = height
-    
-    # Define the viewport origin (usually (0, 0))
-    viewport_x = 0
-    viewport_y = 0
-    
-    # Define the depth range of the viewport (usually 0 to 1)
-    viewport_min_depth = 0
-    viewport_max_depth = 1
+def normalize_pts(points, width):
 
-    vr = width
-    vl = 0
+    # Step 1: Find the minimum and maximum values of x and y coordinates
+    min_x, min_y,_ = np.min(points, axis=0)
+    max_x, max_y,_ = np.max(points, axis=0)
 
-    vt = height
-    vb = 0
-    viewport_matrix = np.array(
-    [[(vr - vl)/2, 0, 0, (vr-1)/2],
-    [0, (vt-vb)/2, 0, (vt-1)/2],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
-    ])
-    # viewport_matrix = np.array(
-    # [[(vr - vl)/2, 0, 0, (vr + vl)/2],
-    # [0, (vt-vb)/2, 0, (vt+vb)/2],
-    # [0, 0, 1/2, 1/2],
-    # [0, 0, 0, 1]
-    # ])
-    
-    # Note: We multiply the scaling factor by -1 to perform the flip
-    # viewport_matrix = np.array([
-    #     [viewport_width / 2, 0, 0, viewport_x + viewport_width / 2],
-    #     [0, viewport_height / 2, 0, viewport_y + viewport_height / 2],  # Changed sign here
-    #     [0, 0, (viewport_max_depth - viewport_min_depth) / 2, (viewport_max_depth + viewport_min_depth) / 2],
-    #     [0, 0, 0, 1]
-    # ])
-    
-    return viewport_matrix
+    aspect_ratio = (max_x - min_x) / (max_y - min_y)
 
-width, height = 600, 400 
+    new_width = width
+    new_height = int(new_width / aspect_ratio)
+
+    normalized_points = points.copy()
+    normalized_points[:, 0] = ((points[:, 0] - min_x) / (max_x - min_x)) * new_width
+    normalized_points[:, 1] = ((points[:, 1] - min_y) / (max_y - min_y)) * new_height
+
+    return new_width,new_height, normalized_points
+
+
+
+# def calculate_og_aspect_ratio(splat_list):
+#     orix = []
+#     oriy = []
+
+#     for point in splat_list:
+#         orix.append(point['position'][0])
+#         oriy.append(point['position'][1])
+
+#     colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
+
+#     oripts = np.array([orix, oriy]).T
+
+#     min_x, min_y = np.min(oripts, axis=0)
+#     max_x, max_y = np.max(oripts, axis=0)
+#     print(min_x, min_y )
+#     print(max_x, max_y )
+
+#     # Step 2: Calculate the aspect ratio
+#     aspect_ratioooo =  (max_y - min_y) /(max_x - min_x)
+#     # fig, ax = plt.subplots(figsize=(8, 4))
+#     # plt.gca().set_aspect('equal', adjustable='box')
+#     # scatter = ax.scatter(orix, oriy, c=colors, s=2)
+#     # plt.show()
+
+#     return aspect_ratioooo
+
+
+width = 1200
 
 splat_list = read_binary_file("nike.splat")
-
-
-
-
-
-def calculate_og_aspect_ratio(splat_list):
-    orix = []
-    oriy = []
-
-    for point in splat_list:
-        orix.append(point['position'][0])
-        oriy.append(point['position'][1])
-
-    colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
-
-    oripts = np.array([orix, oriy]).T
-
-    min_x, min_y = np.min(oripts, axis=0)
-    max_x, max_y = np.max(oripts, axis=0)
-    print(min_x, min_y )
-    print(max_x, max_y )
-
-    # Step 2: Calculate the aspect ratio
-    aspect_ratioooo =  (max_y - min_y) /(max_x - min_x)
-    # fig, ax = plt.subplots(figsize=(8, 4))
-    # plt.gca().set_aspect('equal', adjustable='box')
-    # scatter = ax.scatter(orix, oriy, c=colors, s=2)
-    # plt.show()
-
-    return aspect_ratioooo
-
-
-
 eye = np.array([0, 0, 15], dtype=np.float64)     # Camera position: (0, 0, 5)
 target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
 up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
 
 
 
-
-ar = calculate_og_aspect_ratio(splat_list)
-print(ar)
-persp = create_perspective_matrix(ar)
+persp = create_perspective_matrix()
 view = create_view_matrix(eye,target,up) 
-# viewport_matrix = create_viewport_matrix(width, height)
-
-# print(viewport_matrix)
 joint_matrix =  persp @ view
-flip_matrix_x = np.array([
-    [1, 0, 0, 0],
-    [0, -1, 0, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
-], dtype=np.float32)
 
 x = []
 y = []
@@ -176,14 +118,8 @@ for point in splat_list:
     point['z'] = transformed_point[2]
     # Perspective division
     divided_pt = transformed_point[:3] / transformed_point[3]  
-    # f = np.dot(flip_matrix_x[0:3,0:3], divided_pt)
-
 
     point['position'] = divided_pt
-    # print(viewport_point)
-     
-    # print(viewport_point)
-    # print()
     x.append(point['position'][0])
     y.append(point['position'][1])
     og_z.append(point['z'])
@@ -192,74 +128,89 @@ for point in splat_list:
 
 
 points = np.array([x, y, og_z]).T
-print(points[0:5,:])
 
 
-def normalize_pts(points, width):
-
-
-    # Step 1: Find the minimum and maximum values of x and y coordinates
-    min_x, min_y,_ = np.min(points, axis=0)
-    max_x, max_y,_ = np.max(points, axis=0)
-
-    # Step 2: Calculate the aspect ratio
-    aspect_ratio = (max_x - min_x) / (max_y - min_y)
-
-    # Step 3: Normalize the coordinates
-    new_width = width
-    new_height = int(new_width / aspect_ratio)
-    print("aspect_ratio2",aspect_ratio)
-
-    print("new_width",new_width)
-    print("new_height",new_height)
-
-
-    normalized_points = points.copy()
-    normalized_points[:, 0] = ((points[:, 0] - min_x) / (max_x - min_x)) * new_width
-    normalized_points[:, 1] = ((points[:, 1] - min_y) / (max_y - min_y)) * new_height
-
-    return normalized_points
-
-
-normalized_points = normalize_pts(points, 1000)
-x = normalized_points[:,0]
-y = normalized_points[:,1]
-
-
-# def normalize(points, new_min, new_max):
-#     min_val = min(points)
-#     max_val = max(points)
-#     normalized_points = [(x - min_val) / (max_val - min_val) * (new_max - new_min) + new_min for x in points]
-#     return normalized_points
-
-# new_min = 0
-# new_max = 600
-# x = normalize(x, new_min, new_max)
-# new_min = 0
-# new_max = 400
-# y = normalize(y, new_min, new_max)
-# x = np.array(x)
-# y = np.array(y)
-
-
-og_z = np.array(og_z)
+width, height, normalized_points = normalize_pts(points, width)
 colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
+colors_array = np.array(colors)
 
-canvas = np.zeros((height, width, 4), dtype=np.float32)
+#plot with scatter
+# x = normalized_points[:,0]
+# y = normalized_points[:,1]
+# print(np.min(x), np.max(x))
+# print(np.min(y), np.max(y))
+# fig, ax = plt.subplots(figsize=(6, 4))
+# plt.gca().set_aspect('equal', adjustable='box')
+# scatter = ax.scatter(x, y, c=colors, s=2)
+# plt.show()
 
-def render_points(x, y, z, colors, scaling_parameter): 
 
-    for x_val, y_val, color in zip(x, y, colors):
-        x_idx = int(x_val)
-        y_idx = int(y_val)
-        # print(y_idx, x_idx, color)
-        canvas[y_idx, x_idx, :] = color
-    print(canvas[:10,:10,:])
+def render_points(xyz_color, width, height, scaling_parameter):
+    # Initialize canvas
+    canvas = np.zeros((height + 1, width + 1, 3), dtype=np.float32)
+
+    # Iterate through points
+    for point_color in xyz_color:
+        x, y, z, r, g, b, _ = point_color
+        
+        # Calculate side length based on z-axis and scaling parameter
+        side_length = 2 * scaling_parameter / abs(z)
+        # print("2 * ",scaling_parameter,"/", abs(z), "=", side_length)
+        # Calculate pixel coordinates
+        x_min = max(0, round(x - side_length / 2))
+        x_max = min(width, round(x + side_length / 2))
+        y_min = max(0, round(y - side_length / 2))
+        y_max = min(height, round(y + side_length / 2))
+        # Assign color to pixels
+        # print(round(x - side_length / 2))
+        # print(round(x + side_length / 2))
+
+        canvas[y_min:y_max, x_min:x_max] = [r, g, b]
+    # Plot canvas
     plt.gca().set_aspect('equal', adjustable='box')
-
     plt.imshow(canvas)
     plt.axis('off')  # Turn off axis
-    plt.show()
+
+
+
+
+# Join the arrays (270491, 7) -> x,y,z,r,g,b,a [477.50265052 121.0596521  -42.04483991   0.83529412   0.59215686   0.           1.        ]
+xyz_color = np.concatenate((normalized_points, colors_array), axis=1)
+
+scaling_parameter_init = 26 
+
+render_points(xyz_color, width, height, scaling_parameter_init)
+
+# Create slider
+plt.subplots_adjust(bottom=0.2)  # Adjust plot area for the slider
+ax_slider = plt.axes([0.2, 0.1, 0.65, 0.03])  # Define slider position
+slider_scaling = Slider(ax_slider, 'Scaling Parameter', 25.0, 50.0, valinit=scaling_parameter_init, valstep=5)
+
+# Function to update plot when slider value changes
+def update(val):
+    scaling_parameter = slider_scaling.val
+    render_points(xyz_color, width, height, scaling_parameter)
+
+# Connect slider to update function
+slider_scaling.on_changed(update)
+
+plt.show()
+
+
+
+# def render_points(x, y, z, colors, scaling_parameter): 
+
+#     for x_val, y_val, color in zip(x, y, colors):
+#         x_idx = int(x_val)
+#         y_idx = int(y_val)
+#         # print(y_idx, x_idx, color)
+#         canvas[y_idx, x_idx, :] = color
+#     print(canvas[:10,:10,:])
+#     plt.gca().set_aspect('equal', adjustable='box')
+
+#     plt.imshow(canvas)
+#     plt.axis('off')  # Turn off axis
+#     plt.show()
 
 
 
@@ -297,62 +248,27 @@ def render_points(x, y, z, colors, scaling_parameter):
 
 
 
+# fig, ax = plt.subplots(figsize=(6, 4))
 
+# # render_points(x,y,og_z,colors,0.5)
 
-# square1 = [[-0.11789554, -4.7795533 ],
-#  [-0.14580792, -4.7795533 ],
-#  [-0.14580792, -4.80746568],
-#  [-0.11789554, -4.80746568],
-#  [-0.11789554, -4.7795533 ]]  # Close the square
+# plt.gca().set_aspect('equal', adjustable='box')
 
-# # Coordinates of the second square vertices
-# square2 = [[ 1.11286813, -4.89220175],
-#  [ 1.08481644,-4.89220175],
-#  [ 1.08481644, -4.92025345],
-#  [ 1.11286813, -4.92025345],
-#  [ 1.11286813, -4.89220175]]  # Close the square
+# # Slider
+# scatter = ax.scatter(x, y, c=colors, s=2)
+# # ax_slider = plt.axes([0.2, 0.03, 0.65, 0.03], facecolor='gray')
+# # slider = Slider(ax_slider, 'Point Size',0, 60, valinit=1, valstep=1)
 
-# # Extract x and y coordinates for both squares
-# x1 = [point[0] for point in square1]
-# y1 = [point[1] for point in square1]
+# # def update(val):
+# #     size = slider.val
+# #     ax.clear()
 
-# x2 = [point[0] for point in square2]
-# y2 = [point[1] for point in square2]
-
-# # Plot both squares
-# plt.figure(figsize=(6, 4))
-# plt.plot(x1, y1, 'b-')  # 'b-' for blue lines
-# plt.plot(x2, y2, 'r-')  # 'r-' for red lines
-# plt.xlabel('X-axis')
-# plt.ylabel('Y-axis')
-# plt.title('Two Squares')
-# plt.grid(True)
-# plt.axis('equal')  # Equal aspect ratio
-# plt.show()
-
-
-
-fig, ax = plt.subplots(figsize=(6, 4))
-
-# render_points(x,y,og_z,colors,0.5)
-
-plt.gca().set_aspect('equal', adjustable='box')
-
-# Slider
-scatter = ax.scatter(x, y, c=colors, s=2)
-# ax_slider = plt.axes([0.2, 0.03, 0.65, 0.03], facecolor='gray')
-# slider = Slider(ax_slider, 'Point Size',0, 60, valinit=1, valstep=1)
-
-# def update(val):
-#     size = slider.val
-#     ax.clear()
-
-#     # scatter.set_sizes([size] * len(x))
-#     render_points(x,y,og_z,size)
-#     fig.canvas.draw_idle()
+# #     # scatter.set_sizes([size] * len(x))
+# #     render_points(x,y,og_z,size)
+# #     fig.canvas.draw_idle()
     
-# slider.on_changed(update)
-plt.show()
+# # slider.on_changed(update)
+# plt.show()
 
 
 # Plotting 3D
