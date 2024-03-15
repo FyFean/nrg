@@ -28,9 +28,9 @@ def create_view_matrix(eye, target, up):
 
 
 
-def create_perspective_matrix():
-    width, height = 600, 400 
-    fov = 60
+def create_perspective_matrix(width, height):
+    
+    fov = 90
     near_plane, far_plane = 10, 100.0 
     aspect_ratio = width / height
     fov_rad = np.deg2rad(fov)
@@ -62,14 +62,40 @@ def to_homogeneous(point):
 #     [0, 0, (far_plane + near_plane) / (near_plane - far_plane), -1],
 #     [0, 0, (2 * far_plane * near_plane) / (near_plane - far_plane), 0]
 # ])
-
+def create_viewport_matrix(width, height):
+    # Define the viewport dimensions
+    viewport_width = width
+    viewport_height = height
+    
+    # Define the viewport origin (usually (0, 0))
+    viewport_x = 0
+    viewport_y = 0
+    
+    # Define the depth range of the viewport (usually 0 to 1)
+    viewport_min_depth = 0
+    viewport_max_depth = 1
+    
+    # Note: We multiply the scaling factor by -1 to perform the flip
+    viewport_matrix = np.array([
+        [viewport_width / 2, 0, 0, viewport_x + viewport_width / 2],
+        [0, viewport_height / 2, 0, viewport_y + viewport_height / 2],  # Changed sign here
+        [0, 0, (viewport_max_depth - viewport_min_depth) / 2, (viewport_max_depth + viewport_min_depth) / 2],
+        [0, 0, 0, 1]
+    ])
+    
+    return viewport_matrix
+width = 600
+height = 400
+viewport_matrix = create_viewport_matrix(width, height)
 
 splat_list = read_binary_file("nike.splat")
 
-eye = np.array([0, 0, 10], dtype=np.float64)     # Camera position: (0, 0, 5)
+eye = np.array([0, 0, 15], dtype=np.float64)     # Camera position: (0, 0, 5)
 target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
 up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
-persp = create_perspective_matrix()
+width, height = 600, 400 
+
+persp = create_perspective_matrix(width, height)
 view = create_view_matrix(eye,target,up) 
 
 joint_matrix =  persp @ view
@@ -83,48 +109,71 @@ og_z = []
 for point in splat_list:
     homogeneous_point = to_homogeneous(point)
     transformed_point = np.dot(joint_matrix, homogeneous_point)
+    transformed_point2 = np.dot(viewport_matrix,transformed_point)
     point['z'] = transformed_point[2]
     # Perspective division
-    point['position'] = transformed_point[:3] / transformed_point[3]
+    viewport_point = transformed_point2[:3] / transformed_point2[3]
+
+    
+    # viewport_point = np.dot(viewport_matrix[:3, :3], ndc_point)
+    point['position'] = viewport_point
+
     x.append(point['position'][0])
     y.append(point['position'][1])
     og_z.append(point['z'])
 
 x = np.array(x)
 y = np.array(y)
+print(np.max(x))
+print(np.max(y))
+print(x[600:630])
 og_z = np.array(og_z)
 colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
 
-def render_points(x,y,z,scaling_parameter): 
-    print("s",scaling_parameter)
+canvas = np.zeros((height, width, 4), dtype=np.float32)
 
-    scaling_factor = scaling_parameter / z
-    print("z",z[0:5])
-    side_length = 2 * scaling_factor
-    print(scaling_factor[0:5])
-    print()
+def render_points(x, y, z, colors, scaling_parameter): 
+
+    for x_val, y_val, color in zip(x, y, colors):
+        x_idx = int(x_val)
+        y_idx = int(y_val)
+        # print(y_idx, x_idx, color)
+        canvas[y_idx, x_idx, :] = color
+    print(canvas[:10,:10,:])
+    plt.imshow(canvas)
+    plt.axis('off')  # Turn off axis
+    plt.show()
+
+
+
+    # print("s",scaling_parameter)
+    # scaling_factor = scaling_parameter / z
+    # print("z",z[0:5])
+    # side_length = 2 * scaling_factor
+    # print(scaling_factor[0:5])
+    # print()
   
 
-    # Calculate coordinates of square vertices for all points 5 x 2 x 27000
-    # [x1,y1]
-    # [x2,y2]
-    # [x3,y3]
-    # [x4,y4]
+    # # Calculate coordinates of square vertices for all points 5 x 2 x 27000
+    # # [x1,y1]
+    # # [x2,y2]
+    # # [x3,y3]
+    # # [x4,y4]
     
-    square_vertices = np.array([
-        [x - side_length / 2, y - side_length / 2],  # Bottom-left
-        [x + side_length / 2, y - side_length / 2],  # Bottom-right
-        [x + side_length / 2, y + side_length / 2],  # Top-right
-        [x - side_length / 2, y + side_length / 2],  # Top-left
-    ])
+    # square_vertices = np.array([
+    #     [x - side_length / 2, y - side_length / 2],  # Bottom-left
+    #     [x + side_length / 2, y - side_length / 2],  # Bottom-right
+    #     [x + side_length / 2, y + side_length / 2],  # Top-right
+    #     [x - side_length / 2, y + side_length / 2],  # Top-left
+    # ])
 
-    # print("squares1",square_vertices[:,:,30], "scaling f ", side_length[30])
-    # print("squares2",square_vertices[:,:,800], "scaling f ", side_length[800])
+    # # print("squares1",square_vertices[:,:,30], "scaling f ", side_length[30])
+    # # print("squares2",square_vertices[:,:,800], "scaling f ", side_length[800])
 
-    plt.figure(figsize=(8, 6))
-    # for i in range(1000):
-    for i in range(square_vertices.shape[2]):
-        plt.fill([square_vertices[0][0][i], square_vertices[1][0][i], square_vertices[2][0][i], square_vertices[3][0][i], square_vertices[0][0][i]], [square_vertices[0][1][i], square_vertices[1][1][i], square_vertices[2][1][i], square_vertices[3][1][i], square_vertices[0][1][i]], color=colors[i]) 
+    # plt.figure(figsize=(8, 6))
+    # # for i in range(1000):
+    # for i in range(square_vertices.shape[2]):
+    #     plt.fill([square_vertices[0][0][i], square_vertices[1][0][i], square_vertices[2][0][i], square_vertices[3][0][i], square_vertices[0][0][i]], [square_vertices[0][1][i], square_vertices[1][1][i], square_vertices[2][1][i], square_vertices[3][1][i], square_vertices[0][1][i]], color=colors[i]) 
 
 
 
@@ -168,12 +217,12 @@ def render_points(x,y,z,scaling_parameter):
 
 fig, ax = plt.subplots(figsize=(6, 4))
 
-render_points(x,y,og_z,0.5)
+# render_points(x,y,og_z,colors,0.5)
 
 plt.gca().set_aspect('equal', adjustable='box')
 
 # Slider
-# scatter = ax.scatter(x, y, c=colors, s=2)
+scatter = ax.scatter(x, y, c=colors, s=2)
 # ax_slider = plt.axes([0.2, 0.03, 0.65, 0.03], facecolor='gray')
 # slider = Slider(ax_slider, 'Point Size',0, 60, valinit=1, valstep=1)
 
