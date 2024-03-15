@@ -28,40 +28,44 @@ def create_view_matrix(eye, target, up):
 
 
 
-def create_perspective_matrix(width, height):
-    
-    fov = 90
+# def create_perspective_matrix(aspect_ratio):
+
+#     fov = 60
+#     near_plane, far_plane = 10, 100.0 
+#     # aspect_ratio = aspect_ratio
+#     print("aspect_ratio perspective", aspect_ratio)
+#     fov_rad = np.deg2rad(fov)
+#     f = 15 / np.tan(fov_rad / 2)
+#     z_range = near_plane - far_plane
+#     perspective_matrix = np.array([
+#         [f / aspect_ratio, 0, 0, 0],
+#         [0, f, 0, 0],
+#         [0, 0, (near_plane + far_plane) / z_range, (2 * near_plane * far_plane) / z_range],
+#         [0, 0, -1, 0]
+#     ])
+#     return perspective_matrix
+def create_perspective_matrix(aspect_ratio):
+    aspect_ratio = 1
+    fov = 60
     near_plane, far_plane = 10, 100.0 
-    aspect_ratio = width / height
+    
     fov_rad = np.deg2rad(fov)
-    f = 15 / np.tan(fov_rad / 2)
+    f = 1.0 / np.tan(fov_rad / 2)
     z_range = near_plane - far_plane
+    
     perspective_matrix = np.array([
         [f / aspect_ratio, 0, 0, 0],
         [0, f, 0, 0],
         [0, 0, (near_plane + far_plane) / z_range, (2 * near_plane * far_plane) / z_range],
         [0, 0, -1, 0]
     ])
+    
     return perspective_matrix
 
 def to_homogeneous(point):
     homogeneous_point = np.array([point['position'][0], point['position'][1], point['position'][2], 1])
     return homogeneous_point
 
-# view_matrix = np.array([
-#         [1, 0, 0, -np.dot(np.array([1, 0, 0]), np.array([0, 0, 0]))],
-#         [0, 1, 0, -np.dot( np.array([0, 1, 0]), np.array([0, 0, 0]))],
-#         [0, 0, 1, -np.dot(np.array([0, 0, -1]) , np.array([0, 0, 0]))],
-#         [0, 0, 0, 1]
-#     ])
-
-
-# perspective_matrix = np.array([
-#     [f / aspect_ratio, 0, 0, 0],
-#     [0, f, 0, 0],
-#     [0, 0, (far_plane + near_plane) / (near_plane - far_plane), -1],
-#     [0, 0, (2 * far_plane * near_plane) / (near_plane - far_plane), 0]
-# ])
 def create_viewport_matrix(width, height):
     # Define the viewport dimensions
     viewport_width = width
@@ -74,59 +78,170 @@ def create_viewport_matrix(width, height):
     # Define the depth range of the viewport (usually 0 to 1)
     viewport_min_depth = 0
     viewport_max_depth = 1
+
+    vr = width
+    vl = 0
+
+    vt = height
+    vb = 0
+    viewport_matrix = np.array(
+    [[(vr - vl)/2, 0, 0, (vr-1)/2],
+    [0, (vt-vb)/2, 0, (vt-1)/2],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+    ])
+    # viewport_matrix = np.array(
+    # [[(vr - vl)/2, 0, 0, (vr + vl)/2],
+    # [0, (vt-vb)/2, 0, (vt+vb)/2],
+    # [0, 0, 1/2, 1/2],
+    # [0, 0, 0, 1]
+    # ])
     
     # Note: We multiply the scaling factor by -1 to perform the flip
-    viewport_matrix = np.array([
-        [viewport_width / 2, 0, 0, viewport_x + viewport_width / 2],
-        [0, viewport_height / 2, 0, viewport_y + viewport_height / 2],  # Changed sign here
-        [0, 0, (viewport_max_depth - viewport_min_depth) / 2, (viewport_max_depth + viewport_min_depth) / 2],
-        [0, 0, 0, 1]
-    ])
+    # viewport_matrix = np.array([
+    #     [viewport_width / 2, 0, 0, viewport_x + viewport_width / 2],
+    #     [0, viewport_height / 2, 0, viewport_y + viewport_height / 2],  # Changed sign here
+    #     [0, 0, (viewport_max_depth - viewport_min_depth) / 2, (viewport_max_depth + viewport_min_depth) / 2],
+    #     [0, 0, 0, 1]
+    # ])
     
     return viewport_matrix
-width = 600
-height = 400
-viewport_matrix = create_viewport_matrix(width, height)
+
+width, height = 600, 400 
 
 splat_list = read_binary_file("nike.splat")
+
+
+
+
+
+def calculate_og_aspect_ratio(splat_list):
+    orix = []
+    oriy = []
+
+    for point in splat_list:
+        orix.append(point['position'][0])
+        oriy.append(point['position'][1])
+
+    colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
+
+    oripts = np.array([orix, oriy]).T
+
+    min_x, min_y = np.min(oripts, axis=0)
+    max_x, max_y = np.max(oripts, axis=0)
+    print(min_x, min_y )
+    print(max_x, max_y )
+
+    # Step 2: Calculate the aspect ratio
+    aspect_ratioooo =  (max_y - min_y) /(max_x - min_x)
+    # fig, ax = plt.subplots(figsize=(8, 4))
+    # plt.gca().set_aspect('equal', adjustable='box')
+    # scatter = ax.scatter(orix, oriy, c=colors, s=2)
+    # plt.show()
+
+    return aspect_ratioooo
+
+
 
 eye = np.array([0, 0, 15], dtype=np.float64)     # Camera position: (0, 0, 5)
 target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
 up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
-width, height = 600, 400 
 
-persp = create_perspective_matrix(width, height)
+
+
+
+ar = calculate_og_aspect_ratio(splat_list)
+print(ar)
+persp = create_perspective_matrix(ar)
 view = create_view_matrix(eye,target,up) 
+# viewport_matrix = create_viewport_matrix(width, height)
 
+# print(viewport_matrix)
 joint_matrix =  persp @ view
-
+flip_matrix_x = np.array([
+    [1, 0, 0, 0],
+    [0, -1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+], dtype=np.float32)
 
 x = []
 y = []
 og_z = []
 
-# position mnozena z view in perspective matrix
+# multiplying positions with view, projection and viewport matrix
 for point in splat_list:
     homogeneous_point = to_homogeneous(point)
     transformed_point = np.dot(joint_matrix, homogeneous_point)
-    transformed_point2 = np.dot(viewport_matrix,transformed_point)
     point['z'] = transformed_point[2]
     # Perspective division
-    viewport_point = transformed_point2[:3] / transformed_point2[3]
+    divided_pt = transformed_point[:3] / transformed_point[3]  
+    # f = np.dot(flip_matrix_x[0:3,0:3], divided_pt)
 
-    
-    # viewport_point = np.dot(viewport_matrix[:3, :3], ndc_point)
-    point['position'] = viewport_point
 
+    point['position'] = divided_pt
+    # print(viewport_point)
+     
+    # print(viewport_point)
+    # print()
     x.append(point['position'][0])
     y.append(point['position'][1])
     og_z.append(point['z'])
 
-x = np.array(x)
-y = np.array(y)
-print(np.max(x))
-print(np.max(y))
-print(x[600:630])
+
+
+
+points = np.array([x, y, og_z]).T
+print(points[0:5,:])
+
+
+def normalize_pts(points, width):
+
+
+    # Step 1: Find the minimum and maximum values of x and y coordinates
+    min_x, min_y,_ = np.min(points, axis=0)
+    max_x, max_y,_ = np.max(points, axis=0)
+
+    # Step 2: Calculate the aspect ratio
+    aspect_ratio = (max_x - min_x) / (max_y - min_y)
+
+    # Step 3: Normalize the coordinates
+    new_width = width
+    new_height = int(new_width / aspect_ratio)
+    print("aspect_ratio2",aspect_ratio)
+
+    print("new_width",new_width)
+    print("new_height",new_height)
+
+
+    normalized_points = points.copy()
+    normalized_points[:, 0] = ((points[:, 0] - min_x) / (max_x - min_x)) * new_width
+    normalized_points[:, 1] = ((points[:, 1] - min_y) / (max_y - min_y)) * new_height
+
+    return normalized_points
+
+
+normalized_points = normalize_pts(points, 1000)
+x = normalized_points[:,0]
+y = normalized_points[:,1]
+
+
+# def normalize(points, new_min, new_max):
+#     min_val = min(points)
+#     max_val = max(points)
+#     normalized_points = [(x - min_val) / (max_val - min_val) * (new_max - new_min) + new_min for x in points]
+#     return normalized_points
+
+# new_min = 0
+# new_max = 600
+# x = normalize(x, new_min, new_max)
+# new_min = 0
+# new_max = 400
+# y = normalize(y, new_min, new_max)
+# x = np.array(x)
+# y = np.array(y)
+
+
 og_z = np.array(og_z)
 colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
 
@@ -140,6 +255,8 @@ def render_points(x, y, z, colors, scaling_parameter):
         # print(y_idx, x_idx, color)
         canvas[y_idx, x_idx, :] = color
     print(canvas[:10,:10,:])
+    plt.gca().set_aspect('equal', adjustable='box')
+
     plt.imshow(canvas)
     plt.axis('off')  # Turn off axis
     plt.show()
