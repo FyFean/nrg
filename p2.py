@@ -145,56 +145,108 @@ colors_array = np.array(colors)
 # plt.show()
 
 
+# def render_points(xyz_color, width, height, scaling_parameter):
+#     # Initialize canvas
+#     canvas = np.zeros((height + 1, width + 1, 3), dtype=np.float32)
+
+#     xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
+
+
+#     # Iterate through points
+#     for point_color in xyz_color_sorted:
+#         x, y, z, r, g, b, _ = point_color
+        
+#         # Calculate side length based on z-axis and scaling parameter
+#         side_length = 2 * scaling_parameter / abs(z)
+#         # print("2 * ",scaling_parameter,"/", abs(z), "=", side_length)
+#         # Calculate pixel coordinates
+#         x_min = max(0, round(x - side_length / 2))
+#         x_max = min(width, round(x + side_length / 2))
+#         y_min = max(0, round(y - side_length / 2))
+#         y_max = min(height, round(y + side_length / 2))
+#         # Assign color to pixels
+#         # print(round(x - side_length / 2))
+#         # print(round(x + side_length / 2))
+
+#         canvas[y_min:y_max, x_min:x_max] = [r, g, b]
+#     # Plot canvas
+#     fig = plt.figure(facecolor='black')  # Set figure face color to black
+#     ax = fig.add_subplot(111, facecolor='black')  # Set axis background color to black
+#     ax.set_aspect('equal', adjustable='box')
+#     ax.imshow(canvas)
+#     ax.axis('off')  # Turn off axis
+#     plt.show()
+
 def render_points(xyz_color, width, height, scaling_parameter):
-    # Initialize canvas
-    canvas = np.zeros((height + 1, width + 1, 3), dtype=np.float32)
+    # Initialize canvas with white color and full opacity
+    canvas = np.ones((height + 1, width + 1, 4), dtype=np.float32)
+    canvas[..., 3] = 1.0  # Set alpha channel to 1 (full opacity)
+
+    # Sort points by z-values
+    xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
 
     # Iterate through points
-    for point_color in xyz_color:
-        x, y, z, r, g, b, _ = point_color
+    for point_color in xyz_color_sorted:
+        x, y, z, r, g, b, a = point_color
+        # print("trenutni kvadratek",r, g, b, a)
         
         # Calculate side length based on z-axis and scaling parameter
         side_length = 2 * scaling_parameter / abs(z)
-        # print("2 * ",scaling_parameter,"/", abs(z), "=", side_length)
+
         # Calculate pixel coordinates
         x_min = max(0, round(x - side_length / 2))
         x_max = min(width, round(x + side_length / 2))
         y_min = max(0, round(y - side_length / 2))
         y_max = min(height, round(y + side_length / 2))
-        # Assign color to pixels
-        # print(round(x - side_length / 2))
-        # print(round(x + side_length / 2))
+        
+        # Alpha blending
+        # source_color = np.array([1, 1, 1, 1.0])  # Source color with full opacity, r,g,b,alpha (1,1,1,1.0)
+        
+        #cez vse piksle kvadratka
+        for y_coord in range(y_min, y_max):
+            for x_coord in range(x_min, x_max):
+                RGBd = canvas[y_coord, x_coord][:3] #trenutna barva canvasa samo r,g,b
 
-        canvas[y_min:y_max, x_min:x_max] = [r, g, b]
-    # Plot canvas
+                RGBs =  np.array([r, g, b]) #tole farbamo cez torej trenutni kvadratek
+                As = a #alfa trenutnega kvadratka
+
+                new_color =  (1 - As) * RGBd + As * RGBs
+                new_alpha = 1
+                canvas[y_coord, x_coord] =np.append(new_color, new_alpha)
+
+                # print("RGBd",RGBd[:3])
+                # print("RGBs",RGBs)
+                # print("canvas[y_coord, x_coord]",(1 - As) * RGBd + As * RGBs)
+                # print("As",As)
+                # print()
+    # Plot canvas without alpha channel
     plt.gca().set_aspect('equal', adjustable='box')
-    plt.imshow(canvas)
+    plt.imshow(canvas[..., :3])  # Discard alpha channel for display
     plt.axis('off')  # Turn off axis
-
-
+    plt.show()
 
 
 # Join the arrays (270491, 7) -> x,y,z,r,g,b,a [477.50265052 121.0596521  -42.04483991   0.83529412   0.59215686   0.           1.        ]
 xyz_color = np.concatenate((normalized_points, colors_array), axis=1)
 
-scaling_parameter_init = 26 
+scaling_parameter_init = 100 
 
 render_points(xyz_color, width, height, scaling_parameter_init)
 
-# Create slider
-plt.subplots_adjust(bottom=0.2)  # Adjust plot area for the slider
-ax_slider = plt.axes([0.2, 0.1, 0.65, 0.03])  # Define slider position
-slider_scaling = Slider(ax_slider, 'Scaling Parameter', 25.0, 50.0, valinit=scaling_parameter_init, valstep=5)
+# Create slider probs dj plt.show stran iz render funkcije
+# plt.subplots_adjust(bottom=0.2)  # Adjust plot area for the slider
+# ax_slider = plt.axes([0.2, 0.1, 0.65, 0.03])  # Define slider position
+# slider_scaling = Slider(ax_slider, 'Scaling Parameter', 25.0, 50.0, valinit=scaling_parameter_init, valstep=5)
 
-# Function to update plot when slider value changes
-def update(val):
-    scaling_parameter = slider_scaling.val
-    render_points(xyz_color, width, height, scaling_parameter)
+# # Function to update plot when slider value changes
+# def update(val):
+#     scaling_parameter = slider_scaling.val
+#     render_points(xyz_color, width, height, scaling_parameter)
 
-# Connect slider to update function
-slider_scaling.on_changed(update)
+# # Connect slider to update function
+# slider_scaling.on_changed(update)
 
-plt.show()
+# plt.show()
 
 
 
