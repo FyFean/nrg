@@ -75,6 +75,7 @@ def project_pointcloud(splats, image_height, image_width):
     
     #calculate distances from points to the camera
     distances = np.array(np.abs(points_3d[:, 2] - tvec[2]))
+    print(distances)
 
     #sort points and colors by distance in descending order
     sorted_indices = np.argsort(-distances)
@@ -103,6 +104,7 @@ def project_pointcloud(splats, image_height, image_width):
 def apply_gaussian_falloff(c, x, s, z, a):
     x_minus_c = np.subtract(x, c)    
     x_minus_c_transpose = np.transpose(x_minus_c)
+
     z_over_s = z / s
     sigma_inv = np.array([[z_over_s, 0, 0], [0, z_over_s, 0], [0, 0, z_over_s]])
 
@@ -115,10 +117,12 @@ def draw_2d_image(xybgra, distances, s, image_height, image_width):
     max_distance = distances.max()
     
     #sizes stats
+    m = 0
     sizes = np.zeros(len(xybgra))
     for i in range(len(xybgra)):
         x, y, b, g, r, a = xybgra[i].tolist()
         a /= 255
+        
         # Scale size based on distance
         #size = round((((2 * s * max_distance) / distances[i])*10) % 10)
         size = int((2 * s * max_distance) / distances[i])
@@ -168,7 +172,7 @@ if __name__ == "__main__":
     image_height = 1080
     image_width = 1920
 
-    s = 0.5
+    s = 1
     xybgra, distances = project_pointcloud(splats, image_height, image_width)
     draw_2d_image(xybgra, distances, s, image_height, image_width)
 

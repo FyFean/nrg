@@ -50,7 +50,6 @@ def to_homogeneous(point):
 
 def normalize_pts(points, width):
 
-    # Step 1: Find the minimum and maximum values of x and y coordinates
     min_x, min_y,_ = np.min(points, axis=0)
     max_x, max_y,_ = np.max(points, axis=0)
 
@@ -110,13 +109,13 @@ joint_matrix =  persp @ view
 x = []
 y = []
 og_z = []
-
-# multiplying positions with view, projection and viewport matrix
+print(splat_list[0]['position'][2])
+# multiplying positions with view and projection matrix
 for point in splat_list:
     homogeneous_point = to_homogeneous(point)
     transformed_point = np.dot(joint_matrix, homogeneous_point)
-    point['z'] = transformed_point[2]
     # Perspective division
+    point['z'] = transformed_point[2]
     divided_pt = transformed_point[:3] / transformed_point[3]  
 
     point['position'] = divided_pt
@@ -125,7 +124,9 @@ for point in splat_list:
     og_z.append(point['z'])
 
 
-
+distances_z = np.abs(np.array(og_z) - eye[2])
+print("z distances",distances_z)
+# print(og_z)
 
 points = np.array([x, y, og_z]).T
 
@@ -177,6 +178,34 @@ colors_array = np.array(colors)
 #     ax.axis('off')  # Turn off axis
 #     plt.show()
 
+
+# def gaussian_3d(c, x, s, z, a):
+def gaussian_3d(x_coord, y_coord, center_x, center_y, sigma):
+
+
+    # x_minus_c = np.subtract(x, c)    
+    # x_minus_c_transpose = np.transpose(x_minus_c)
+    # z_over_s = z / s
+    # # print("dd",z_over_s)
+    # sigma_inv = np.array([[0.5, 0, 0], [0, 0.5, 0], [0, 0, 0.5]])
+
+    # g_x = np.exp(-0.5 * np.matmul(np.matmul(x_minus_c_transpose, sigma_inv), x_minus_c))
+    # return g_x
+    # Construct the covariance matrix
+
+    covariance_matrix = np.diag([sigma, sigma, sigma])
+
+    # Calculate the distance squared from the pixel to the center
+    x_diff = x_coord - center_x
+    y_diff = y_coord - center_y
+    distance_squared = np.dot(np.dot([x_diff, y_diff, 0], np.linalg.inv(covariance_matrix)), [x_diff, y_diff, 0])
+
+    # Evaluate the Gaussian function
+    gx = np.exp(-0.5 * distance_squared)
+    
+    return gx
+
+
 def render_points(xyz_color, width, height, scaling_parameter):
     # Initialize canvas with white color and full opacity
     canvas = np.ones((height + 1, width + 1, 4), dtype=np.float32)
@@ -186,6 +215,8 @@ def render_points(xyz_color, width, height, scaling_parameter):
     xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
 
     # Iterate through points
+    m = 0
+
     for point_color in xyz_color_sorted:
         x, y, z, r, g, b, a = point_color
         # print("trenutni kvadratek",r, g, b, a)
@@ -199,29 +230,70 @@ def render_points(xyz_color, width, height, scaling_parameter):
         y_min = max(0, round(y - side_length / 2))
         y_max = min(height, round(y + side_length / 2))
         
-        # Alpha blending
-        # source_color = np.array([1, 1, 1, 1.0])  # Source color with full opacity, r,g,b,alpha (1,1,1,1.0)
         
+   
         #cez vse piksle kvadratka
-        for y_coord in range(y_min, y_max):
-            for x_coord in range(x_min, x_max):
-                RGBd = canvas[y_coord, x_coord][:3] #trenutna barva canvasa samo r,g,b
+       
 
+        # small = np.ones((round(side_length), round(side_length), 4), dtype=np.float32)
+        small = np.zeros((round(side_length), round(side_length), 1), dtype=np.float32)
+
+        # small[..., 1] = 1.0 
+        n = 0
+        
+     
+
+        i = 0
+        for y_coord in range(y_min, y_max):
+            j = 0
+            for x_coord in range(x_min, x_max):
+
+                RGBd = canvas[y_coord, x_coord][:3] #trenutna barva canvasa samo r,g,b
                 RGBs =  np.array([r, g, b]) #tole farbamo cez torej trenutni kvadratek
-                As = a #alfa trenutnega kvadratka
+
+                # No gaussian splatting
+                # As = a #alfa trenutnega kvadratka
+
+                # Gaussian splatting
+
+                # sigma = scaling_parameter / z
+                sigma = scaling_parameter / abs(z) #somehitng stupid bc my gaussian is inversed
+
+                gx = gaussian_3d(x_coord, y_coord, x, y, sigma)
+
+                # small[i, j] = gx * a
+                # print("i,j ", i,j," ",small[i, j])
+
+                
+              
+               
+                As = a * gx
+                
 
                 new_color =  (1 - As) * RGBd + As * RGBs
-                new_alpha = 1
-                canvas[y_coord, x_coord] =np.append(new_color, new_alpha)
+                new_alpha = 1   #spreminjamo barvo glede na opacity, ne dejanskega opacityja
+                canvas[y_coord, x_coord] = np.append(new_color, new_alpha)
+                
+               
+                # img[y1, x1] = (1 - a_adjusted) * img[y1, x1] + a_adjusted * (np.array([b, g, r])/255)
 
-                # print("RGBd",RGBd[:3])
-                # print("RGBs",RGBs)
-                # print("canvas[y_coord, x_coord]",(1 - As) * RGBd + As * RGBs)
-                # print("As",As)
-                # print()
+
+
+        #         j = j +1
+        #     i = i +1
+        # n = n +1
+        # if n >= 1:
+        #     print("breakkkkkkkk")
+        #     break
+
+
     # Plot canvas without alpha channel
     plt.gca().set_aspect('equal', adjustable='box')
     plt.imshow(canvas[..., :3])  # Discard alpha channel for display
+
+    # plt.imshow(small)  # Discard alpha channel for display
+
+
     plt.axis('off')  # Turn off axis
     plt.show()
 
