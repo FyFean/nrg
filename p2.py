@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Slider
 from util import *
-
-
+import time
 
 def create_view_matrix(eye, target, up):
     forward = (target - eye)
@@ -65,42 +64,69 @@ def normalize_pts(points, width):
     return new_width,new_height, normalized_points
 
 
+def gaussian_3d(x_coord, y_coord, center_x, center_y, sigma):
+    covariance_matrix = np.diag([sigma, sigma, sigma])
+    x_diff = x_coord - center_x
+    y_diff = y_coord - center_y
+    distance_squared = np.dot(np.dot([x_diff, y_diff, 0], np.linalg.inv(covariance_matrix)), [x_diff, y_diff, 0])
+    gx = np.exp(-0.5 * distance_squared)
+    
+    return gx
 
-# def calculate_og_aspect_ratio(splat_list):
-#     orix = []
-#     oriy = []
 
-#     for point in splat_list:
-#         orix.append(point['position'][0])
-#         oriy.append(point['position'][1])
+def render_points(xyz_color, width, height, scaling_parameter):
+    start_time = time.time()
+    canvas = np.ones((height + 1, width + 1, 4), dtype=np.float32)
+    canvas[..., 3] = 1.0  # Set alpha channel to 1 (full opacity)
 
-#     colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
+    # Sort points by z-values
+    xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
 
-#     oripts = np.array([orix, oriy]).T
+    for point_color in xyz_color_sorted:
+        x, y, z, r, g, b, a = point_color
+        
+        side_length = 2 * scaling_parameter / abs(z)
 
-#     min_x, min_y = np.min(oripts, axis=0)
-#     max_x, max_y = np.max(oripts, axis=0)
-#     print(min_x, min_y )
-#     print(max_x, max_y )
+        x_min = max(0, round(x - side_length / 2))
+        x_max = min(width, round(x + side_length / 2))
+        y_min = max(0, round(y - side_length / 2))
+        y_max = min(height, round(y + side_length / 2))
+        
+        #cez vse piksle kvadratka
+        for y_coord in range(y_min, y_max):
+            for x_coord in range(x_min, x_max):
 
-#     # Step 2: Calculate the aspect ratio
-#     aspect_ratioooo =  (max_y - min_y) /(max_x - min_x)
-#     # fig, ax = plt.subplots(figsize=(8, 4))
-#     # plt.gca().set_aspect('equal', adjustable='box')
-#     # scatter = ax.scatter(orix, oriy, c=colors, s=2)
-#     # plt.show()
+                RGBd = canvas[y_coord, x_coord][:3] #trenutna barva canvasa samo r,g,b
+                RGBs =  np.array([r, g, b]) #tole farbamo cez torej trenutni kvadratek
 
-#     return aspect_ratioooo
+                # No gaussian splatting
+                As = a #alfa trenutnega kvadratka
+
+                # Gaussian splatting
+                # sigma = scaling_parameter / abs(z)
+                # gx = gaussian_3d(x_coord, y_coord, x, y, sigma)
+                # As = a * gx
+
+                new_color =  (1 - As) * RGBd + As * RGBs
+                new_alpha = 1   #spreminjamo barvo glede na opacity, ne dejanskega opacityja
+                canvas[y_coord, x_coord] = np.append(new_color, new_alpha)
+                
+
+
+    # Plot canvas without alpha channel
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.imshow(canvas[..., :3])  
+    plt.axis('off')
+    plt.show()
+
 
 
 width = 1200
 
-splat_list = read_binary_file("nike.splat")
-eye = np.array([0, 0, 15], dtype=np.float64)     # Camera position: (0, 0, 5)
-target = np.array([0, 0, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
-up = np.array([0, 100, 0], dtype=np.float64)      # Up direction: (0, 1, 0) - assuming Y is up
-
-
+splat_list = read_binary_file("train.splat")
+eye = np.array([0, 0, 15], dtype=np.float64)     # Camera position: (0, 0, 15)
+target = np.array([0, -30, 0], dtype=np.float64)  # Camera target: (0, 0, 0) - looking at the origin
+up = np.array([0, 10, 0], dtype=np.float64)      # Up direction: (0, 100, 0) - assuming Y is up
 
 persp = create_perspective_matrix()
 view = create_view_matrix(eye,target,up) 
@@ -109,196 +135,26 @@ joint_matrix =  persp @ view
 x = []
 y = []
 og_z = []
-print(splat_list[0]['position'][2])
-# multiplying positions with view and projection matrix
+
+# Multiplying positions with view and projection matrix
 for point in splat_list:
     homogeneous_point = to_homogeneous(point)
     transformed_point = np.dot(joint_matrix, homogeneous_point)
-    # Perspective division
     point['z'] = transformed_point[2]
     divided_pt = transformed_point[:3] / transformed_point[3]  
-
     point['position'] = divided_pt
     x.append(point['position'][0])
     y.append(point['position'][1])
     og_z.append(point['z'])
 
-
-distances_z = np.abs(np.array(og_z) - eye[2])
-print("z distances",distances_z)
-# print(og_z)
-
+print
 points = np.array([x, y, og_z]).T
-
 
 width, height, normalized_points = normalize_pts(points, width)
 colors = [tuple(x / 255 for x in splat['color']) for splat in splat_list]
 colors_array = np.array(colors)
 
-#plot with scatter
-# x = normalized_points[:,0]
-# y = normalized_points[:,1]
-# print(np.min(x), np.max(x))
-# print(np.min(y), np.max(y))
-# fig, ax = plt.subplots(figsize=(6, 4))
-# plt.gca().set_aspect('equal', adjustable='box')
-# scatter = ax.scatter(x, y, c=colors, s=2)
-# plt.show()
-
-
-# def render_points(xyz_color, width, height, scaling_parameter):
-#     # Initialize canvas
-#     canvas = np.zeros((height + 1, width + 1, 3), dtype=np.float32)
-
-#     xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
-
-
-#     # Iterate through points
-#     for point_color in xyz_color_sorted:
-#         x, y, z, r, g, b, _ = point_color
-        
-#         # Calculate side length based on z-axis and scaling parameter
-#         side_length = 2 * scaling_parameter / abs(z)
-#         # print("2 * ",scaling_parameter,"/", abs(z), "=", side_length)
-#         # Calculate pixel coordinates
-#         x_min = max(0, round(x - side_length / 2))
-#         x_max = min(width, round(x + side_length / 2))
-#         y_min = max(0, round(y - side_length / 2))
-#         y_max = min(height, round(y + side_length / 2))
-#         # Assign color to pixels
-#         # print(round(x - side_length / 2))
-#         # print(round(x + side_length / 2))
-
-#         canvas[y_min:y_max, x_min:x_max] = [r, g, b]
-#     # Plot canvas
-#     fig = plt.figure(facecolor='black')  # Set figure face color to black
-#     ax = fig.add_subplot(111, facecolor='black')  # Set axis background color to black
-#     ax.set_aspect('equal', adjustable='box')
-#     ax.imshow(canvas)
-#     ax.axis('off')  # Turn off axis
-#     plt.show()
-
-
-# def gaussian_3d(c, x, s, z, a):
-def gaussian_3d(x_coord, y_coord, center_x, center_y, sigma):
-
-
-    # x_minus_c = np.subtract(x, c)    
-    # x_minus_c_transpose = np.transpose(x_minus_c)
-    # z_over_s = z / s
-    # # print("dd",z_over_s)
-    # sigma_inv = np.array([[0.5, 0, 0], [0, 0.5, 0], [0, 0, 0.5]])
-
-    # g_x = np.exp(-0.5 * np.matmul(np.matmul(x_minus_c_transpose, sigma_inv), x_minus_c))
-    # return g_x
-    # Construct the covariance matrix
-
-    covariance_matrix = np.diag([sigma, sigma, sigma])
-
-    # Calculate the distance squared from the pixel to the center
-    x_diff = x_coord - center_x
-    y_diff = y_coord - center_y
-    distance_squared = np.dot(np.dot([x_diff, y_diff, 0], np.linalg.inv(covariance_matrix)), [x_diff, y_diff, 0])
-
-    # Evaluate the Gaussian function
-    gx = np.exp(-0.5 * distance_squared)
-    
-    return gx
-
-
-def render_points(xyz_color, width, height, scaling_parameter):
-    # Initialize canvas with white color and full opacity
-    canvas = np.ones((height + 1, width + 1, 4), dtype=np.float32)
-    canvas[..., 3] = 1.0  # Set alpha channel to 1 (full opacity)
-
-    # Sort points by z-values
-    xyz_color_sorted = sorted(xyz_color, key=lambda point: point[2], reverse=True)
-
-    # Iterate through points
-    m = 0
-
-    for point_color in xyz_color_sorted:
-        x, y, z, r, g, b, a = point_color
-        # print("trenutni kvadratek",r, g, b, a)
-        
-        # Calculate side length based on z-axis and scaling parameter
-        side_length = 2 * scaling_parameter / abs(z)
-
-        # Calculate pixel coordinates
-        x_min = max(0, round(x - side_length / 2))
-        x_max = min(width, round(x + side_length / 2))
-        y_min = max(0, round(y - side_length / 2))
-        y_max = min(height, round(y + side_length / 2))
-        
-        
-   
-        #cez vse piksle kvadratka
-       
-
-        # small = np.ones((round(side_length), round(side_length), 4), dtype=np.float32)
-        small = np.zeros((round(side_length), round(side_length), 1), dtype=np.float32)
-
-        # small[..., 1] = 1.0 
-        n = 0
-        
-     
-
-        i = 0
-        for y_coord in range(y_min, y_max):
-            j = 0
-            for x_coord in range(x_min, x_max):
-
-                RGBd = canvas[y_coord, x_coord][:3] #trenutna barva canvasa samo r,g,b
-                RGBs =  np.array([r, g, b]) #tole farbamo cez torej trenutni kvadratek
-
-                # No gaussian splatting
-                # As = a #alfa trenutnega kvadratka
-
-                # Gaussian splatting
-
-                # sigma = scaling_parameter / z
-                sigma = scaling_parameter / abs(z) #somehitng stupid bc my gaussian is inversed
-
-                gx = gaussian_3d(x_coord, y_coord, x, y, sigma)
-
-                # small[i, j] = gx * a
-                # print("i,j ", i,j," ",small[i, j])
-
-                
-              
-               
-                As = a * gx
-                
-
-                new_color =  (1 - As) * RGBd + As * RGBs
-                new_alpha = 1   #spreminjamo barvo glede na opacity, ne dejanskega opacityja
-                canvas[y_coord, x_coord] = np.append(new_color, new_alpha)
-                
-               
-                # img[y1, x1] = (1 - a_adjusted) * img[y1, x1] + a_adjusted * (np.array([b, g, r])/255)
-
-
-
-        #         j = j +1
-        #     i = i +1
-        # n = n +1
-        # if n >= 1:
-        #     print("breakkkkkkkk")
-        #     break
-
-
-    # Plot canvas without alpha channel
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.imshow(canvas[..., :3])  # Discard alpha channel for display
-
-    # plt.imshow(small)  # Discard alpha channel for display
-
-
-    plt.axis('off')  # Turn off axis
-    plt.show()
-
-
-# Join the arrays (270491, 7) -> x,y,z,r,g,b,a [477.50265052 121.0596521  -42.04483991   0.83529412   0.59215686   0.           1.        ]
+# Join the arrays (270491, 7) -> x,y,z,r,g,b,a
 xyz_color = np.concatenate((normalized_points, colors_array), axis=1)
 
 scaling_parameter_init = 100 
