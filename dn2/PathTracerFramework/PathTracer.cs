@@ -21,28 +21,37 @@ namespace PathTracer
         {
             var L = Spectrum.ZeroSpectrum;
             Spectrum beta = Spectrum.Create(1);
+            int bounces = 0;
 
-            while (true)
+            while (bounces < 20)
             {
                 (double? closest_t, SurfaceInteraction surf_info) = s.Intersect(r);
 
+                // No intersection
                 if (!closest_t.HasValue || surf_info == null) { Debug.WriteLine("We have no intersection"); break; }
 
 
-                // Ce zadanemo luc
+                // Hit light
                 Spectrum emittedSpectrum = surf_info.Le(-r.d); //klicemo Le funkcijo, ce ni luc vrne 0, direction of the ray je -r.d
-                if (!emittedSpectrum.IsBlack())
+                if (surf_info.Obj is Light)
                 {
                     Debug.WriteLine("We hit a light source!");
                     L = emittedSpectrum * beta;
                     break;
                 }
-                else // Ce ne zadanemo luci
+                else // Didnt hit light
                 {
-                    // Sample a new direction using the BSDF, f -> intensity of color contribution in direction wiW, pdf -> p(wi)
+                  
+                    // Sample the light aka Path reuse
+                    Spectrum sampledLight = Light.UniformSampleOneLight(surf_info, s);
+                    L.AddTo(beta * sampledLight);
+
+                    // Sample a new direction using BSDF, f -> intensity of color contribution in direction wiW, pdf -> p(wi)
                     Primitive primitive = surf_info.Obj;
                     Shape shape = primitive as Shape;
                     if (shape == null) { break; }
+
+
                     (Spectrum f, Vector3 wi, double pdf, bool isSpecular) = shape.BSDF.Sample_f(-r.d, surf_info);
 
                     // Create a new ray from point surf_info in direction wi
@@ -50,9 +59,15 @@ namespace PathTracer
 
                     // Update beta 
                     beta = beta * f * Vector3.AbsDot(wi, surf_info.Normal) / pdf;
-                    // Spectrum temp = Light.UniformSampleOneLight(surf_info, s);
-                    // L.AddTo(beta * temp);
 
+                    // Russian roulette, small beta -> break, larger beta -> continue
+                    if (bounces > 3){
+                        double q = 1 - beta.Max();
+                        if (ThreadSafeRandom.NextDouble() < q) { break;}
+                        beta = beta / (1 - q); 
+                    }
+                    
+            
                 }
 
             }// end while
