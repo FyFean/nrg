@@ -32,7 +32,7 @@ namespace PathTracer
 
 
                 // Hit light
-                Spectrum emittedSpectrum = surf_info.Le(-r.d); //klicemo Le funkcijo, ce ni luc vrne 0, direction of the ray je -r.d
+                Spectrum emittedSpectrum = surf_info.Le(-r.d); //klicemo Le funkcijo, direction of the ray je -r.d
                 if (surf_info.Obj is Light)
                 {
                     Debug.WriteLine("We hit a light source!");
@@ -66,6 +66,8 @@ namespace PathTracer
                         if (ThreadSafeRandom.NextDouble() < q) { break;}
                         beta = beta / (1 - q); 
                     }
+
+                    bounces++;
                     
             
                 }
