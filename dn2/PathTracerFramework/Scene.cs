@@ -107,10 +107,14 @@ namespace PathTracer
 
             s.Elements.Add(new DiffuseAreaLight(new Disk(80, 0.1, Transform.Translate(278, 548, 280).A(Transform.RotateX(90))), Spectrum.Create(1), 20));
 
+            // sphere light
+            //s.Elements.Add(new DiffuseAreaLight( new Sphere(50, Transform.Translate(278, 548, 280)), Spectrum.Create(1), 20));
 
 
             el = new Sphere(100, Transform.Translate(150, 100, 420));
-            el.BSDF.Add(new Lambertian(Spectrum.ZeroSpectrum.FromRGB(Color.Blue)));
+            //el.BSDF.Add(new Lambertian(Spectrum.ZeroSpectrum.FromRGB(Color.Blue)));
+            el.BSDF.Add(new OrenNayer(Spectrum.ZeroSpectrum.FromRGB(Color.Blue), 30));
+
             s.Elements.Add(el);
 
             el = new Sphere(100, Transform.Translate(400, 100, 230));

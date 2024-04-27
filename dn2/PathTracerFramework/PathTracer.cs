@@ -28,21 +28,22 @@ namespace PathTracer
                 (double? closest_t, SurfaceInteraction surf_info) = s.Intersect(r);
 
                 // No intersection
-                if (!closest_t.HasValue || surf_info == null) { Debug.WriteLine("We have no intersection"); break; }
+                if (!closest_t.HasValue || surf_info == null) { break; }
 
 
                 // Hit light
-                Spectrum emittedSpectrum = surf_info.Le(-r.d); //klicemo Le funkcijo, direction of the ray je -r.d
+                Spectrum emittedSpectrum = surf_info.Le(-r.d); //klicemo Le funkcijo, ce ni luc vrne 0, direction of the ray je -r.d
                 if (surf_info.Obj is Light)
                 {
                     Debug.WriteLine("We hit a light source!");
-                    L = emittedSpectrum * beta;
+                    if (bounces == 0) L = beta * emittedSpectrum;
+                    //L = beta * emittedSpectrum;
                     break;
                 }
                 else // Didnt hit light
                 {
-                  
-                    // Sample the light aka Path reuse
+
+                    // Sample the light 
                     Spectrum sampledLight = Light.UniformSampleOneLight(surf_info, s);
                     L.AddTo(beta * sampledLight);
 
@@ -61,15 +62,16 @@ namespace PathTracer
                     beta = beta * f * Vector3.AbsDot(wi, surf_info.Normal) / pdf;
 
                     // Russian roulette, small beta -> break, larger beta -> continue
-                    if (bounces > 3){
+                    if (bounces > 3)
+                    {
                         double q = 1 - beta.Max();
-                        if (ThreadSafeRandom.NextDouble() < q) { break;}
-                        beta = beta / (1 - q); 
+                        if (ThreadSafeRandom.NextDouble() < q) { break; }
+                        beta = beta / (1 - q);
                     }
 
+
                     bounces++;
-                    
-            
+
                 }
 
             }// end while

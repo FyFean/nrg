@@ -69,7 +69,8 @@
     <Compile Include="Helpers\Samplers.cs" />
     <Compile Include="MaterialsLights\SpecularReflection.cs" />
     <Compile Include="MaterialsLights\Lambertian.cs" />
-    <Compile Include="MaterialsLights\BxDF.cs" />
+	<Compile Include="MaterialsLights\OrenNayer.cs" />
+	<Compile Include="MaterialsLights\BxDF.cs" />
     <Compile Include="MaterialsLights\DiffuseAreaLight.cs" />
     <Compile Include="Primitives\Quad.cs" />
     <Compile Include="Primitives\Disk.cs" />
